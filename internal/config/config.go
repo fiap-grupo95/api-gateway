@@ -14,12 +14,24 @@ type Config struct {
 	MaxUploadSizeMB       int64
 	AllowedMIMETypes      []string
 	JWTSecret             []byte
+	AuthUsername          string
+	AuthPasswordHash      string
 }
 
 func Load() (*Config, error) {
 	jwtSecret := os.Getenv("JWT_SECRET")
 	if len(jwtSecret) < 32 {
 		return nil, fmt.Errorf("JWT_SECRET must be at least 32 characters")
+	}
+
+	authUsername := os.Getenv("AUTH_USERNAME")
+	if authUsername == "" {
+		return nil, fmt.Errorf("AUTH_USERNAME is required")
+	}
+
+	authPasswordHash := os.Getenv("AUTH_PASSWORD_HASH")
+	if authPasswordHash == "" {
+		return nil, fmt.Errorf("AUTH_PASSWORD_HASH is required")
 	}
 
 	maxMB, err := strconv.ParseInt(getEnvOrDefault("MAX_UPLOAD_SIZE_MB", "10"), 10, 64)
@@ -36,6 +48,8 @@ func Load() (*Config, error) {
 		MaxUploadSizeMB:       maxMB,
 		AllowedMIMETypes:      mimeTypes,
 		JWTSecret:             []byte(jwtSecret),
+		AuthUsername:          authUsername,
+		AuthPasswordHash:      authPasswordHash,
 	}, nil
 }
 

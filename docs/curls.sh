@@ -4,10 +4,10 @@
 # Base URL: http://localhost:8080
 # =============================================================================
 #
-# PRÉ-REQUISITO: gerar um JWT de teste
-#   cd /caminho/do/projeto
-#   source .env
-#   JWT=$(go run api-gateway/docs/generate_token.go)
+# PRÉ-REQUISITO: obter um JWT via login
+#   JWT=$(curl -s -X POST http://localhost:8080/auth/login \
+#     -H "Content-Type: application/json" \
+#     -d '{"username":"admin","password":"SUA_SENHA"}' | jq -r .token)
 #
 # =============================================================================
 
@@ -15,6 +15,30 @@ BASE_URL="http://localhost:8080"
 JWT="${JWT_TOKEN:-SEU_TOKEN_AQUI}"
 PROCESS_ID="${PROCESS_ID:-SEU_PROCESS_ID_AQUI}"
 REPORT_ID="${REPORT_ID:-SEU_REPORT_ID_AQUI}"
+
+# ─── Login — Obter JWT ────────────────────────────────────────────────────────
+# POST /auth/login
+# Não requer auth. Retorna token JWT com expiração de 1h.
+#
+curl -i -X POST "${BASE_URL}/auth/login" \
+  -H "Content-Type: application/json" \
+  -d '{"username":"admin","password":"SUA_SENHA"}'
+
+# Resposta esperada (200 OK):
+# {
+#   "token": "eyJhbGci...",
+#   "expires_in": 3600
+# }
+
+# Salvar token automaticamente:
+# JWT=$(curl -s -X POST "${BASE_URL}/auth/login" \
+#   -H "Content-Type: application/json" \
+#   -d '{"username":"admin","password":"SUA_SENHA"}' | jq -r .token)
+
+# Credenciais inválidas → 401
+curl -i -X POST "${BASE_URL}/auth/login" \
+  -H "Content-Type: application/json" \
+  -d '{"username":"admin","password":"senha_errada"}'
 
 # ─── Health Check ─────────────────────────────────────────────────────────────
 # Verifica se o serviço está no ar (não requer auth)

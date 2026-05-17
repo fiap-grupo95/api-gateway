@@ -38,7 +38,8 @@ func main() {
 	orchestratorClient := client.NewOrchestratorClient(cfg.UploadOrchestratorURL)
 	reportClient := client.NewReportClient(cfg.ReportServiceURL)
 
-	// ─── Handler ──────────────────────────────────────────────────────────────
+	// ─── Handlers ─────────────────────────────────────────────────────────────
+	authHandler := handler.NewAuthHandler(cfg.AuthUsername, cfg.AuthPasswordHash, cfg.JWTSecret, log)
 	diagramHandler := handler.NewDiagramHandler(
 		orchestratorClient,
 		reportClient,
@@ -60,6 +61,7 @@ func main() {
 	r.Use(middleware.RateLimiter(100.0/60.0, 20))
 
 	r.GET("/ping", func(c *gin.Context) { c.String(http.StatusOK, "pong") })
+	r.POST("/auth/login", authHandler.Login)
 
 	api := r.Group("/api")
 	api.Use(middleware.JWTAuth(cfg.JWTSecret))

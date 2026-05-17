@@ -45,7 +45,7 @@ Cliente
 
 ```
 internal/
-├── config/         ← JWT_SECRET (≥32 chars), MIME types, max upload size
+├── config/         ← JWT_SECRET (≥32 chars), AUTH_USERNAME, AUTH_PASSWORD_HASH, MIME types, max upload size
 ├── middleware/
 │   ├── auth.go         ← JWT HS256, WithValidMethods(["HS256"])
 │   ├── request_id.go   ← gera/propaga X-Request-ID
@@ -55,6 +55,7 @@ internal/
 │   ├── orchestrator.go ← Upload (Content-Length explícito) + GetStatus
 │   └── report.go       ← GetReport
 └── handler/
+    ├── auth.go         ← POST /auth/login — bcrypt + tempo constante + emissão JWT
     └── diagram.go      ← MIME sniff 512 bytes, sanitizeFilename, mapUpstreamStatus
 ```
 
@@ -62,7 +63,9 @@ internal/
 
 | Controle | Implementação |
 |---|---|
+| Emissão de JWT | `POST /auth/login` — bcrypt (custo 10) + `subtle.ConstantTimeCompare`; token HS256 expira em 1h |
 | Autenticação | JWT HS256, secret mínimo 32 chars, `WithValidMethods` fixado |
+| Credenciais | `AUTH_USERNAME` + `AUTH_PASSWORD_HASH` (bcrypt) via variáveis de ambiente — sem hardcode |
 | Validação de tipo | `http.DetectContentType` nos primeiros 512 bytes (conteúdo binário) |
 | Limitação de tamanho | `http.MaxBytesReader` antes de qualquer parse de multipart |
 | Rate limiting | `golang.org/x/time/rate` por IP, burst 20, limpeza de entradas inativas |
@@ -74,6 +77,13 @@ internal/
 ## Fluxo da Solução
 
 ```
+POST /auth/login
+  1. RateLimiter verifica tokens disponíveis para o IP
+  2. Valida body JSON {username, password} com binding (min/max)
+  3. subtle.ConstantTimeCompare(username) + bcrypt.CompareHashAndPassword(password)
+     → ambas sempre executam (previne enumeração por timing)
+  4. Retorna JWT HS256 {sub, iat, exp+1h} ou 401 genérico
+
 POST /api/diagrams
   1. RateLimiter verifica tokens disponíveis para o IP
   2. JWTAuth valida Bearer token (HS256, exp obrigatório)
@@ -106,6 +116,8 @@ GET /api/reports/:reportId
 | Variável | Obrigatório | Padrão | Descrição |
 |---|---|---|---|
 | `JWT_SECRET` | Sim | — | Secret HS256 (mínimo 32 caracteres) |
+| `AUTH_USERNAME` | Sim | — | Usuário do endpoint `/auth/login` |
+| `AUTH_PASSWORD_HASH` | Sim | — | Hash bcrypt da senha (use `$$` para escapar `$` no `.env`) |
 | `UPLOAD_ORCHESTRATOR_URL` | Sim | — | Ex: `http://upload-orchestrator:8081` |
 | `REPORT_SERVICE_URL` | Sim | — | Ex: `http://report-service:8083` |
 | `PORT` | Não | `8080` | Porta HTTP |
@@ -118,7 +130,11 @@ GET /api/reports/:reportId
 
 ```bash
 # A partir da raiz do projeto
-cp .env.example .env   # edite JWT_SECRET e LLM_API_KEY
+cp .env.example .env   # edite JWT_SECRET, AUTH_USERNAME, AUTH_PASSWORD_HASH e LLM_API_KEY
+
+# Gerar hash bcrypt para AUTH_PASSWORD_HASH (já escapado para o Docker Compose):
+htpasswd -bnBC 10 "" SUA_SENHA | tr -d ':\n' | sed 's/\$/\$\$/g'
+
 docker compose up --build -d api-gateway
 
 # Verificar saúde
@@ -142,12 +158,17 @@ export REPORT_SERVICE_URL="http://localhost:8083"
 go run main.go
 ```
 
-### Gerar token JWT para testes
+### Obter token JWT
 
 ```bash
-# A partir da raiz do projeto
-source .env
-go run api-gateway/docs/generate_token.go
+curl -s -X POST http://localhost:8080/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"admin","password":"SUA_SENHA"}' | jq -r .token
+
+# Salvar em variável para reuso:
+JWT=$(curl -s -X POST http://localhost:8080/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"admin","password":"SUA_SENHA"}' | jq -r .token)
 ```
 
 ### Endpoints
@@ -155,6 +176,7 @@ go run api-gateway/docs/generate_token.go
 | Método | Rota | Auth | Descrição |
 |---|---|---|---|
 | `GET` | `/ping` | Não | Healthcheck |
+| `POST` | `/auth/login` | Não | Autentica e retorna JWT (expira em 1h) |
 | `POST` | `/api/diagrams` | JWT | Upload de diagrama |
 | `GET` | `/api/process/:processId/status` | JWT | Status do processamento |
 | `GET` | `/api/reports/:reportId` | JWT | Relatório de análise |
@@ -167,6 +189,8 @@ go run api-gateway/docs/generate_token.go
 
 | Controle | Implementação |
 |---|---|
+| Emissão de JWT | `POST /auth/login` — `bcrypt.CompareHashAndPassword` + `subtle.ConstantTimeCompare` em tempo constante |
+| Credenciais | `AUTH_PASSWORD_HASH` armazena apenas o hash bcrypt (custo 10); senha jamais aparece em variável ou log |
 | Autenticação | JWT HS256, `WithValidMethods(["HS256"])` — algoritmo fixado para prevenir algorithm confusion |
 | Validação de secret | `config.Load()` rejeita `JWT_SECRET` com menos de 32 caracteres na inicialização |
 | Detecção de MIME | `http.DetectContentType` nos primeiros 512 bytes do conteúdo binário — não confia na extensão |
@@ -194,7 +218,8 @@ go run api-gateway/docs/generate_token.go
 
 | Risco | Severidade | Mitigação atual | Recomendação para produção |
 |---|---|---|---|
-| Sem revogação de JWT | Média | Expiração de 24h no token de teste | Implementar blocklist com Redis ou reduzir TTL |
+| Sem revogação de JWT | Média | Expiração de 1h no token emitido por `/auth/login` | Implementar blocklist com Redis ou reduzir TTL |
+| Usuário único por variável de ambiente | Média | Suficiente para MVP | Migrar para banco de usuários com hashes individuais |
 | Sem mTLS para serviços upstream | Média | Rede Docker isolada | TLS mútuo ou service mesh |
 | Rate limiter em memória | Baixa | Reiniciar o gateway reseta contadores | Usar Redis para estado distribuído em multi-instância |
 | CORS não configurado | Baixa | Sem frontend SPA — apenas API | Configurar `Access-Control-Allow-Origin` se necessário |
