@@ -19,26 +19,27 @@ Em uma arquitetura de microsserviços, expor cada serviço diretamente à intern
 
 ## Arquitetura Proposta
 
-```
-Cliente
-  │
-  ▼
-┌─────────────────────────────────────────────────────┐
-│                    API Gateway :8080                 │
-│                                                     │
-│  gin.Recovery → New Relic → RequestID → Logger      │
-│       → RateLimiter (100 req/min/IP) → JWTAuth      │
-│                                                     │
-│  ┌──────────────┐   ┌──────────────────────────┐   │
-│  │ /api/diagrams│   │ /api/process/:id/status  │   │
-│  │ /api/reports/│   │ client/orchestrator.go   │   │
-│  │ :id          │   │ client/report.go         │   │
-│  └──────────────┘   └──────────────────────────┘   │
-└─────────────────────────────────────────────────────┘
-         │                          │
-         ▼                          ▼
-  upload-orchestrator          report-service
-       :8081                       :8083
+```mermaid
+graph TD
+    C[Cliente]
+
+    subgraph GW["API Gateway :8080"]
+        MW["gin.Recovery → New Relic → RequestID → Logger\n→ RateLimiter 100 req/min/IP → JWTAuth"]
+        RD["POST /api/diagrams"]
+        RS_R["GET /api/reports/:id"]
+        RP["GET /api/process/:id/status"]
+        MW --> RD
+        MW --> RS_R
+        MW --> RP
+    end
+
+    UO["upload-orchestrator :8081"]
+    RS["report-service :8083"]
+
+    C --> MW
+    RD --> UO
+    RP --> UO
+    RS_R --> RS
 ```
 
 ### Camadas internas (Clean Architecture)
