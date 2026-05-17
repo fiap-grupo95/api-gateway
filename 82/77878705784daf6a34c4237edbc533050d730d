@@ -1,0 +1,37 @@
+internal/config/config.go
+  s_536512e345bdf2::t_22432823e1a528 17-18
+  s_536512e345bdf2::t_63e2d272098132 27-36,51-52
+internal/handler/auth.go
+  s_536512e345bdf2::t_ad477d8984e486 1-31,33-71
+  s_536512e345bdf2::t_592fcba825b0f7 32
+README.md
+  s_536512e345bdf2::t_5134691aeb4502 66,68
+  s_536512e345bdf2::t_84055e7ba56688 80-86
+  s_536512e345bdf2::t_c24da0ff8c3689 221-222
+  s_536512e345bdf2::t_b223214e11b633 48,58
+  s_536512e345bdf2::t_708a3dce531727 161,164-171,179
+  s_536512e345bdf2::t_1cd2e560c5da95 133-137
+  s_536512e345bdf2::t_bf3d0ae968f40d 192-193
+  s_536512e345bdf2::t_407b364249cc21 119-120
+docs/curls.sh
+  s_536512e345bdf2::t_9637bf42852707 7-10,19-41
+main.go
+  s_536512e345bdf2::t_8838dde2034322 64
+  s_536512e345bdf2::t_6f0a9e3c2a766a 41-42
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.8",
+  "base_commit_sha": "8277878705784daf6a34c4237edbc533050d730d",
+  "prompts": {},
+  "sessions": {
+    "s_536512e345bdf2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "33986088-0187-4e0d-9073-36b713f13bc2",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "programanda03 <paganiamanda791@gmail.com>"
+    }
+  }
+}
