@@ -1,0 +1,22 @@
+name: api-gateway-dev
+
+# Sobe apenas o gateway. Os serviços upstream (upload-orchestrator e report-service)
+# devem estar rodando nos seus próprios docker-compose.dev.yml.
+#
+# Subir:
+#   docker compose -f docker-compose.dev.yml up --build
+
+services:
+  api-gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    env_file: .env
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
