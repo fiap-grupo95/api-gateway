@@ -8,12 +8,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/fiap/secure-systems/api-gateway/internal/client"
-	"github.com/fiap/secure-systems/api-gateway/internal/config"
-	"github.com/fiap/secure-systems/api-gateway/internal/handler"
-	"github.com/fiap/secure-systems/api-gateway/internal/middleware"
-	"github.com/gin-gonic/gin"
-	"github.com/newrelic/go-agent/v3/integrations/nrgin"
+	"github.com/fiap/secure-systems/api-gateway/internal/infrastructure/config"
+	"github.com/fiap/secure-systems/api-gateway/internal/infrastructure/di"
+	"github.com/fiap/secure-systems/api-gateway/internal/infrastructure/http/gin/router"
 	"github.com/newrelic/go-agent/v3/newrelic"
 	"go.uber.org/zap"
 )
@@ -22,6 +19,7 @@ func main() {
 	log, _ := zap.NewProduction()
 	defer log.Sync()
 
+	// ─── Load Configuration ────────────────────────────────────────────────────
 	cfg, err := config.Load()
 	if err != nil {
 		log.Fatal("failed to load config", zap.Error(err))
@@ -34,48 +32,25 @@ func main() {
 		nrApp, _ = newrelic.NewApplication(newrelic.ConfigEnabled(false))
 	}
 
-	// ─── Clients para serviços internos ───────────────────────────────────────
-	orchestratorClient := client.NewOrchestratorClient(cfg.UploadOrchestratorURL)
-	reportClient := client.NewReportClient(cfg.ReportServiceURL)
+	// ─── Dependency Injection Container ───────────────────────────────────────
+	container := di.NewContainer(&di.Config{
+		UploadOrchestratorURL: cfg.UploadOrchestratorURL,
+		ReportServiceURL:      cfg.ReportServiceURL,
+		MaxUploadSizeBytes:    cfg.MaxUploadSizeMB * 1024 * 1024,
+		AuthUsername:          cfg.AuthUsername,
+		AuthPasswordHash:      cfg.AuthPasswordHash,
+		JWTSecret:             cfg.JWTSecret,
+		AllowedMIMETypes:      cfg.AllowedMIMETypes,
+		Logger:                log,
+	})
 
-	// ─── Handlers ─────────────────────────────────────────────────────────────
-	authHandler := handler.NewAuthHandler(cfg.AuthUsername, cfg.AuthPasswordHash, cfg.JWTSecret, log)
-	diagramHandler := handler.NewDiagramHandler(
-		orchestratorClient,
-		reportClient,
-		cfg.MaxUploadSizeMB,
-		cfg.AllowedMIMETypes,
-		log,
-	)
+	// ─── Router ───────────────────────────────────────────────────────────────
+	r := router.NewRouter(container, cfg.JWTSecret, log, nrApp)
 
-	// ─── Roteador Gin ─────────────────────────────────────────────────────────
-	gin.SetMode(gin.ReleaseMode)
-	r := gin.New()
-
-	// Middlewares globais (ordem importa)
-	r.Use(gin.Recovery())
-	r.Use(nrgin.Middleware(nrApp))
-	r.Use(middleware.RequestID())
-	r.Use(middleware.Logger(log))
-	// 100 req/min por IP, burst de 20
-	r.Use(middleware.RateLimiter(100.0/60.0, 20))
-
-	r.GET("/ping", func(c *gin.Context) { c.String(http.StatusOK, "pong") })
-	r.POST("/auth/login", authHandler.Login)
-
-	api := r.Group("/api")
-	api.Use(middleware.JWTAuth(cfg.JWTSecret))
-	{
-		// Timeout maior para upload (LLM pode demorar no downstream)
-		api.POST("/diagrams", diagramHandler.Upload)
-		api.GET("/process/:processId/status", diagramHandler.GetStatus)
-		api.GET("/reports/:reportId", diagramHandler.GetReport)
-	}
-
-	// ─── Servidor HTTP ────────────────────────────────────────────────────────
+	// ─── HTTP Server ──────────────────────────────────────────────────────────
 	srv := &http.Server{
 		Addr:         ":" + cfg.Port,
-		Handler:      r,
+		Handler:      r.Engine(),
 		ReadTimeout:  15 * time.Second,
 		WriteTimeout: 60 * time.Second,
 		IdleTimeout:  120 * time.Second,
