@@ -1,0 +1,41 @@
+internal/infrastructure/gateway/orchestrator_http.go
+  s_d5fe741da537ac::t_de94fa4d7986dc 97-101,104
+internal/infrastructure/http/gin/handler/error_mapper.go
+  s_d5fe741da537ac::t_7fb4fe864c23ea 4,7,11-31,33-34,36-37,39-40,42-43,46,52-53
+internal/infrastructure/di/container.go
+  s_d5fe741da537ac::t_75e4338e33a103 5,20,41-46,83,86,91
+internal/infrastructure/http/gin/middleware/rate_limiter.go
+  s_d5fe741da537ac::t_472ee8e9fb3e4b 6,10-12,14
+internal/domain/entity/diagram.go
+  s_d5fe741da537ac::t_7ca9cae8c970d9 64,69
+internal/infrastructure/http/gin/router/router.go
+  s_d5fe741da537ac::t_bc4675fe9f73ac 30
+internal/domain/entity/process.go
+  s_d5fe741da537ac::t_6d1b545d1adbd7 180-183
+internal/infrastructure/http/gin/handler/diagram_handler.go
+  s_d5fe741da537ac::t_8445c4be11ceb3 7,21,30,68-69,91-92,121-122
+internal/infrastructure/http/gin/handler/auth_handler.go
+  s_d5fe741da537ac::t_8eb81318835b45 4,7-8,16,20,46-49,51
+internal/domain/entity/entity_test.go
+  s_d5fe741da537ac::t_1080968041c975 308-311
+go.mod
+  s_d5fe741da537ac::t_258700c2c6276d 3
+internal/infrastructure/config/env_config.go
+  s_d5fe741da537ac::t_63815de4b5b101 49-53
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.11",
+  "base_commit_sha": "3c82a6e6ffc674427859e636a706b34ba7ddefa9",
+  "prompts": {},
+  "sessions": {
+    "s_d5fe741da537ac": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "eb774918-65a5-442e-b6f8-3783dea633b0",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "programanda03 <paganiamanda791@gmail.com>"
+    }
+  }
+}
