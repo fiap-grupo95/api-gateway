@@ -10,8 +10,7 @@ const (
 	RequestIDHeader = "X-Request-ID"
 )
 
-// RequestID lê o X-Request-ID do cliente ou gera um UUID novo.
-// Sempre injeta o valor no contexto Gin e no header de resposta.
+// RequestID lê o X-Request-ID do cliente ou gera um UUID novo
 func RequestID() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		rid := c.GetHeader(RequestIDHeader)
@@ -24,7 +23,7 @@ func RequestID() gin.HandlerFunc {
 	}
 }
 
-// GetRequestID recupera o request ID do contexto Gin.
+// GetRequestID recupera o request ID do contexto Gin
 func GetRequestID(c *gin.Context) string {
 	v, _ := c.Get(RequestIDKey)
 	if rid, ok := v.(string); ok {

@@ -7,7 +7,7 @@ import (
 	"go.uber.org/zap"
 )
 
-// Logger produz um log estruturado por request com method, path, status, latência, IP e request ID.
+// Logger produz um log estruturado por request
 func Logger(log *zap.Logger) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		start := time.Now()
