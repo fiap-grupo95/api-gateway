@@ -4,12 +4,12 @@ import (
 	"io"
 	"net/http"
 
+	domsvc "github.com/fiap/secure-systems/api-gateway/internal/domain/service"
 	"github.com/fiap/secure-systems/api-gateway/internal/infrastructure/http/gin/middleware"
 	"github.com/fiap/secure-systems/api-gateway/internal/usecase/get_process_status"
 	"github.com/fiap/secure-systems/api-gateway/internal/usecase/get_report"
 	"github.com/fiap/secure-systems/api-gateway/internal/usecase/upload_diagram"
 	"github.com/gin-gonic/gin"
-	"go.uber.org/zap"
 )
 
 // DiagramHandler é o adapter HTTP para os use cases de diagrama
@@ -18,7 +18,7 @@ type DiagramHandler struct {
 	getStatusUseCase *get_process_status.UseCase
 	getReportUseCase *get_report.UseCase
 	maxUploadBytes   int64
-	log              *zap.Logger
+	log              domsvc.Logger
 }
 
 // NewDiagramHandler cria uma nova instância
@@ -27,7 +27,7 @@ func NewDiagramHandler(
 	getStatusUseCase *get_process_status.UseCase,
 	getReportUseCase *get_report.UseCase,
 	maxUploadBytes int64,
-	log *zap.Logger,
+	log domsvc.Logger,
 ) *DiagramHandler {
 	return &DiagramHandler{
 		uploadUseCase:    uploadUseCase,
@@ -39,14 +39,12 @@ func NewDiagramHandler(
 }
 
 // Upload é o handler HTTP para POST /api/diagrams
-// Responsabilidade: apenas adaptar HTTP ↔ Use Case
 func (h *DiagramHandler) Upload(c *gin.Context) {
 	requestID := middleware.GetRequestID(c)
 
 	// Limita o corpo antes de qualquer leitura
 	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, h.maxUploadBytes)
 
-	// 1. Parse HTTP request
 	file, header, err := c.Request.FormFile("diagram")
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "field 'diagram' is required (multipart/form-data)"})
@@ -60,24 +58,18 @@ func (h *DiagramHandler) Upload(c *gin.Context) {
 		return
 	}
 
-	// 2. Criar input do use case
 	input := upload_diagram.Input{
 		Content:  content,
 		Filename: header.Filename,
 	}
 
-	// 3. Executar use case
 	output, err := h.uploadUseCase.Execute(c.Request.Context(), input, requestID)
 	if err != nil {
-		h.log.Error("upload use case failed",
-			zap.String("request_id", requestID),
-			zap.Error(err),
-		)
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		h.log.Error("upload use case failed", "request_id", requestID, "error", err)
+		RespondWithError(c, err)
 		return
 	}
 
-	// 4. Formatar resposta HTTP
 	c.JSON(http.StatusAccepted, gin.H{
 		"process_id": output.ProcessID.String(),
 		"status":     output.Status.String(),
@@ -96,12 +88,8 @@ func (h *DiagramHandler) GetStatus(c *gin.Context) {
 
 	output, err := h.getStatusUseCase.Execute(c.Request.Context(), input, requestID)
 	if err != nil {
-		h.log.Error("get status use case failed",
-			zap.String("request_id", requestID),
-			zap.String("process_id", processID),
-			zap.Error(err),
-		)
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		h.log.Error("get status use case failed", "request_id", requestID, "process_id", processID, "error", err)
+		RespondWithError(c, err)
 		return
 	}
 
@@ -130,12 +118,8 @@ func (h *DiagramHandler) GetReport(c *gin.Context) {
 
 	output, err := h.getReportUseCase.Execute(c.Request.Context(), input, requestID)
 	if err != nil {
-		h.log.Error("get report use case failed",
-			zap.String("request_id", requestID),
-			zap.String("report_id", reportID),
-			zap.Error(err),
-		)
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		h.log.Error("get report use case failed", "request_id", requestID, "report_id", reportID, "error", err)
+		RespondWithError(c, err)
 		return
 	}
 

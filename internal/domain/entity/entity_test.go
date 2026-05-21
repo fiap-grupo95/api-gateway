@@ -305,10 +305,10 @@ func TestProcessStatus_String(t *testing.T) {
 		status entity.ProcessStatus
 		expected string
 	}{
-		{"pending", entity.StatusPending, "pending"},
-		{"processing", entity.StatusProcessing, "processing"},
-		{"completed", entity.StatusCompleted, "completed"},
-		{"failed", entity.StatusFailed, "failed"},
+		{"pending", entity.StatusPending, "RECEBIDO"},
+		{"processing", entity.StatusProcessing, "EM_PROCESSAMENTO"},
+		{"completed", entity.StatusCompleted, "ANALISADO"},
+		{"failed", entity.StatusFailed, "ERRO"},
 	}
 
 	for _, tt := range tests {

@@ -27,8 +27,7 @@ func NewRouter(container *di.Container, jwtSecret []byte, log *zap.Logger, nrApp
 	r.Use(nrgin.Middleware(nrApp))
 	r.Use(middleware.RequestID())
 	r.Use(middleware.Logger(log))
-	// 100 req/min por IP, burst de 20
-	r.Use(middleware.RateLimiter(100.0/60.0, 20))
+	r.Use(middleware.RateLimiterMiddleware(container.RateLimiter))
 
 	// Health check
 	r.GET("/ping", func(c *gin.Context) {

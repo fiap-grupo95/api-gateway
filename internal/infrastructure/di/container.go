@@ -2,6 +2,7 @@ package di
 
 import (
 	"github.com/fiap/secure-systems/api-gateway/internal/domain/entity"
+	domsvc "github.com/fiap/secure-systems/api-gateway/internal/domain/service"
 	"github.com/fiap/secure-systems/api-gateway/internal/infrastructure/gateway"
 	"github.com/fiap/secure-systems/api-gateway/internal/infrastructure/http/gin/handler"
 	"github.com/fiap/secure-systems/api-gateway/internal/infrastructure/service"
@@ -16,6 +17,7 @@ import (
 type Container struct {
 	DiagramHandler *handler.DiagramHandler
 	AuthHandler    *handler.AuthHandler
+	RateLimiter    domsvc.RateLimiter
 }
 
 // Config é a configuração para o container
@@ -36,6 +38,12 @@ func NewContainer(cfg *Config) *Container {
 	// INFRASTRUCTURE LAYER (outer) - Adapters
 	// ═══════════════════════════════════════════════════════════════
 
+	// Logger abstrato (domain service interface)
+	logger := service.NewZapLoggerAdapter(cfg.Logger)
+
+	// Rate limiter (100 req/min por IP, burst de 20)
+	rateLimiter := service.NewTokenBucketRateLimiter(100.0/60.0, 20)
+
 	// Gateways (adapters para serviços externos)
 	orchestratorGateway := gateway.NewOrchestratorHTTPGateway(cfg.UploadOrchestratorURL)
 	reportGateway := gateway.NewReportHTTPGateway(cfg.ReportServiceURL)
@@ -47,20 +55,16 @@ func NewContainer(cfg *Config) *Container {
 	// APPLICATION LAYER - Use Cases
 	// ═══════════════════════════════════════════════════════════════
 
-	// Upload diagram use case
 	uploadUseCase := upload_diagram.New(
 		orchestratorGateway,
 		mimeValidator,
 		cfg.MaxUploadSizeBytes,
 	)
 
-	// Get process status use case
 	getStatusUseCase := get_process_status.New(orchestratorGateway)
 
-	// Get report use case
 	getReportUseCase := get_report.New(reportGateway)
 
-	// Authenticate use case
 	authenticateUseCase := authenticate.New(
 		cfg.AuthUsername,
 		cfg.AuthPasswordHash,
@@ -76,13 +80,14 @@ func NewContainer(cfg *Config) *Container {
 		getStatusUseCase,
 		getReportUseCase,
 		cfg.MaxUploadSizeBytes,
-		cfg.Logger,
+		logger,
 	)
 
-	authHandler := handler.NewAuthHandler(authenticateUseCase, cfg.Logger)
+	authHandler := handler.NewAuthHandler(authenticateUseCase, logger)
 
 	return &Container{
 		DiagramHandler: diagramHandler,
 		AuthHandler:    authHandler,
+		RateLimiter:    rateLimiter,
 	}
 }

@@ -177,10 +177,10 @@ func (r ReportID) String() string {
 type ProcessStatus string
 
 const (
-	StatusPending    ProcessStatus = "pending"
-	StatusProcessing ProcessStatus = "processing"
-	StatusCompleted  ProcessStatus = "completed"
-	StatusFailed     ProcessStatus = "failed"
+	StatusPending    ProcessStatus = "RECEBIDO"
+	StatusProcessing ProcessStatus = "EM_PROCESSAMENTO"
+	StatusCompleted  ProcessStatus = "ANALISADO"
+	StatusFailed     ProcessStatus = "ERRO"
 )
 
 func (s ProcessStatus) IsValid() bool {

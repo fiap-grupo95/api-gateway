@@ -1,22 +1,23 @@
 package handler
 
 import (
+	"errors"
 	"net/http"
 
-	"github.com/fiap/secure-systems/api-gateway/internal/domain/errors"
+	domainErrors "github.com/fiap/secure-systems/api-gateway/internal/domain/errors"
+	domsvc "github.com/fiap/secure-systems/api-gateway/internal/domain/service"
 	"github.com/fiap/secure-systems/api-gateway/internal/usecase/authenticate"
 	"github.com/gin-gonic/gin"
-	"go.uber.org/zap"
 )
 
 // AuthHandler é o adapter HTTP para o use case de autenticação
 type AuthHandler struct {
 	authenticateUseCase *authenticate.UseCase
-	log                 *zap.Logger
+	log                 domsvc.Logger
 }
 
 // NewAuthHandler cria uma nova instância
-func NewAuthHandler(authenticateUseCase *authenticate.UseCase, log *zap.Logger) *AuthHandler {
+func NewAuthHandler(authenticateUseCase *authenticate.UseCase, log domsvc.Logger) *AuthHandler {
 	return &AuthHandler{
 		authenticateUseCase: authenticateUseCase,
 		log:                 log,
@@ -35,26 +36,22 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 
-	// Criar input do use case
 	input := authenticate.Input{
 		Username: req.Username,
 		Password: req.Password,
 	}
 
-	// Executar use case
 	output, err := h.authenticateUseCase.Execute(c.Request.Context(), input)
 	if err != nil {
-		if err == errors.ErrInvalidCredentials {
-			h.log.Warn("failed login attempt", zap.String("remote_addr", c.ClientIP()))
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid credentials"})
-			return
+		if errors.Is(err, domainErrors.ErrInvalidCredentials) {
+			h.log.Warn("failed login attempt", "remote_addr", c.ClientIP())
+		} else {
+			h.log.Error("authentication use case failed", "error", err)
 		}
-		h.log.Error("authentication use case failed", zap.Error(err))
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		RespondWithError(c, err)
 		return
 	}
 
-	// Formatar resposta HTTP
 	c.JSON(http.StatusOK, gin.H{
 		"token":      output.Token,
 		"expires_in": output.ExpiresIn,

@@ -94,9 +94,14 @@ func (g *OrchestratorHTTPGateway) GetProcessStatus(ctx context.Context, processI
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
 
+	status := entity.ProcessStatus(response.Status)
+	if !status.IsValid() {
+		return nil, fmt.Errorf("orchestrator returned unknown status %q", response.Status)
+	}
+
 	dto := &domainGateway.ProcessStatusDTO{
 		ProcessID: entity.ProcessID(response.ProcessID),
-		Status:    entity.ProcessStatus(response.Status),
+		Status:    status,
 		Error:     response.Error,
 	}
 

@@ -61,11 +61,12 @@ const (
 	MIMETypePNG  MIMEType = "image/png"
 	MIMETypeJPEG MIMEType = "image/jpeg"
 	MIMETypePDF  MIMEType = "application/pdf"
+	MIMETypeWebP MIMEType = "image/webp"
 )
 
 func (m MIMEType) Validate() error {
 	switch m {
-	case MIMETypePNG, MIMETypeJPEG, MIMETypePDF:
+	case MIMETypePNG, MIMETypeJPEG, MIMETypePDF, MIMETypeWebP:
 		return nil
 	default:
 		return fmt.Errorf("%w: %s", errors.ErrInvalidMIMEType, m)
