@@ -10,7 +10,6 @@ import (
 	"github.com/fiap/secure-systems/api-gateway/internal/usecase/get_process_status"
 	"github.com/fiap/secure-systems/api-gateway/internal/usecase/get_report"
 	"github.com/fiap/secure-systems/api-gateway/internal/usecase/upload_diagram"
-	"go.uber.org/zap"
 )
 
 // Container é o container de Dependency Injection
@@ -29,7 +28,6 @@ type Config struct {
 	AuthPasswordHash      string
 	JWTSecret             []byte
 	AllowedMIMETypes      []entity.MIMEType
-	Logger                *zap.Logger
 }
 
 // NewContainer cria um novo container com todas as dependências configuradas
@@ -39,7 +37,7 @@ func NewContainer(cfg *Config) *Container {
 	// ═══════════════════════════════════════════════════════════════
 
 	// Logger abstrato (domain service interface)
-	logger := service.NewZapLoggerAdapter(cfg.Logger)
+	logger := service.NewZerologLoggerAdapter()
 
 	// Rate limiter (100 req/min por IP, burst de 20)
 	rateLimiter := service.NewTokenBucketRateLimiter(100.0/60.0, 20)

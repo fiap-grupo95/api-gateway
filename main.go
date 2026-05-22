@@ -11,26 +11,30 @@ import (
 	"github.com/fiap/secure-systems/api-gateway/internal/infrastructure/config"
 	"github.com/fiap/secure-systems/api-gateway/internal/infrastructure/di"
 	"github.com/fiap/secure-systems/api-gateway/internal/infrastructure/http/gin/router"
+	"github.com/fiap/secure-systems/api-gateway/internal/logging"
 	"github.com/newrelic/go-agent/v3/newrelic"
-	"go.uber.org/zap"
 )
 
 func main() {
-	log, _ := zap.NewProduction()
-	defer log.Sync()
-
 	// ─── Load Configuration ────────────────────────────────────────────────────
 	cfg, err := config.Load()
 	if err != nil {
-		log.Fatal("failed to load config", zap.Error(err))
+		panic("failed to load config: " + err.Error())
 	}
 
 	// ─── New Relic ────────────────────────────────────────────────────────────
-	nrApp, err := newrelic.NewApplication(newrelic.ConfigFromEnvironment())
+	nrApp, err := newrelic.NewApplication(
+		newrelic.ConfigFromEnvironment(),
+		newrelic.ConfigDistributedTracerEnabled(true),
+		newrelic.ConfigAppLogForwardingEnabled(true),
+	)
 	if err != nil {
-		log.Warn("new relic not configured", zap.Error(err))
 		nrApp, _ = newrelic.NewApplication(newrelic.ConfigEnabled(false))
 	}
+
+	// ─── Logging (deve ser inicializado após o New Relic) ─────────────────────
+	logging.Init(nrApp)
+	log := logging.Logger()
 
 	// ─── Dependency Injection Container ───────────────────────────────────────
 	container := di.NewContainer(&di.Config{
@@ -41,11 +45,10 @@ func main() {
 		AuthPasswordHash:      cfg.AuthPasswordHash,
 		JWTSecret:             cfg.JWTSecret,
 		AllowedMIMETypes:      cfg.AllowedMIMETypes,
-		Logger:                log,
 	})
 
 	// ─── Router ───────────────────────────────────────────────────────────────
-	r := router.NewRouter(container, cfg.JWTSecret, log, nrApp)
+	r := router.NewRouter(container, cfg.JWTSecret, nrApp)
 
 	// ─── HTTP Server ──────────────────────────────────────────────────────────
 	srv := &http.Server{
@@ -60,9 +63,9 @@ func main() {
 	defer stop()
 
 	go func() {
-		log.Info("api-gateway started", zap.String("port", cfg.Port))
+		log.Info().Str("port", cfg.Port).Msg("api-gateway started")
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			log.Fatal("server error", zap.Error(err))
+			log.Fatal().Err(err).Msg("server error")
 		}
 	}()
 
@@ -71,7 +74,7 @@ func main() {
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	if err := srv.Shutdown(shutdownCtx); err != nil {
-		log.Error("shutdown error", zap.Error(err))
+		log.Error().Err(err).Msg("shutdown error")
 	}
-	log.Info("api-gateway stopped")
+	log.Info().Msg("api-gateway stopped")
 }

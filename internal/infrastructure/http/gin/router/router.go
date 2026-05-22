@@ -8,7 +8,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/newrelic/go-agent/v3/integrations/nrgin"
 	"github.com/newrelic/go-agent/v3/newrelic"
-	"go.uber.org/zap"
 )
 
 // Router configura todas as rotas da aplicação
@@ -18,7 +17,7 @@ type Router struct {
 }
 
 // NewRouter cria um novo router configurado
-func NewRouter(container *di.Container, jwtSecret []byte, log *zap.Logger, nrApp *newrelic.Application) *Router {
+func NewRouter(container *di.Container, jwtSecret []byte, nrApp *newrelic.Application) *Router {
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.New()
 
@@ -26,7 +25,7 @@ func NewRouter(container *di.Container, jwtSecret []byte, log *zap.Logger, nrApp
 	r.Use(gin.Recovery())
 	r.Use(nrgin.Middleware(nrApp))
 	r.Use(middleware.RequestID())
-	r.Use(middleware.Logger(log))
+	r.Use(middleware.Logger())
 	r.Use(middleware.RateLimiterMiddleware(container.RateLimiter))
 
 	// Health check
