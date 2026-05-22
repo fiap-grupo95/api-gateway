@@ -1,0 +1,32 @@
+internal/infrastructure/http/gin/middleware/logger.go
+  s_017d8af4510f35::t_93c2345036645a 6,10,20-28
+go.mod
+  s_017d8af4510f35::t_37c48ea57e9ded 10,12
+  s_017d8af4510f35::t_79de143ca9be7e 9,11,31,35
+internal/infrastructure/http/gin/router/router.go
+  s_017d8af4510f35::t_a1200e29dc9d62 20,28
+internal/logging/logger.go
+  s_017d8af4510f35::t_6e3ffa4c53c97e 1-44
+internal/infrastructure/di/container.go
+  s_017d8af4510f35::t_d65c2552a05835 40
+internal/infrastructure/service/zerolog_logger_adapter.go
+  s_017d8af4510f35::t_622a69451454bd 1-32
+main.go
+  s_017d8af4510f35::t_d4f03d1b3db181 14,22,26-30,35-38,51,66,68,77,79
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.12",
+  "base_commit_sha": "1b3f7540ed0feefd3293e0b274d66fcd69e98dbe",
+  "prompts": {},
+  "sessions": {
+    "s_017d8af4510f35": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d66c0fd1-4d70-4b5e-a7af-72838c054fc3",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "programanda03 <paganiamanda791@gmail.com>"
+    }
+  }
+}
