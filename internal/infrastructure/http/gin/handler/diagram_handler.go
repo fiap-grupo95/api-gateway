@@ -4,49 +4,47 @@ import (
 	"io"
 	"net/http"
 
-	domsvc "github.com/fiap/secure-systems/api-gateway/internal/domain/service"
 	"github.com/fiap/secure-systems/api-gateway/internal/infrastructure/http/gin/middleware"
+	"github.com/fiap/secure-systems/api-gateway/internal/logging"
 	"github.com/fiap/secure-systems/api-gateway/internal/usecase/get_process_status"
 	"github.com/fiap/secure-systems/api-gateway/internal/usecase/get_report"
 	"github.com/fiap/secure-systems/api-gateway/internal/usecase/upload_diagram"
 	"github.com/gin-gonic/gin"
 )
 
-// DiagramHandler é o adapter HTTP para os use cases de diagrama
 type DiagramHandler struct {
 	uploadUseCase    *upload_diagram.UseCase
 	getStatusUseCase *get_process_status.UseCase
 	getReportUseCase *get_report.UseCase
 	maxUploadBytes   int64
-	log              domsvc.Logger
 }
 
-// NewDiagramHandler cria uma nova instância
 func NewDiagramHandler(
 	uploadUseCase *upload_diagram.UseCase,
 	getStatusUseCase *get_process_status.UseCase,
 	getReportUseCase *get_report.UseCase,
 	maxUploadBytes int64,
-	log domsvc.Logger,
 ) *DiagramHandler {
 	return &DiagramHandler{
 		uploadUseCase:    uploadUseCase,
 		getStatusUseCase: getStatusUseCase,
 		getReportUseCase: getReportUseCase,
 		maxUploadBytes:   maxUploadBytes,
-		log:              log,
 	}
 }
 
-// Upload é o handler HTTP para POST /api/diagrams
 func (h *DiagramHandler) Upload(c *gin.Context) {
 	requestID := middleware.GetRequestID(c)
+	log := logging.LoggerWithContext(c.Request.Context())
 
-	// Limita o corpo antes de qualquer leitura
 	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, h.maxUploadBytes)
 
 	file, header, err := c.Request.FormFile("diagram")
 	if err != nil {
+		log.Warn().
+			Str("request_id", requestID).
+			Err(err).
+			Msg("missing or unreadable 'diagram' field in multipart form")
 		c.JSON(http.StatusBadRequest, gin.H{"error": "field 'diagram' is required (multipart/form-data)"})
 		return
 	}
@@ -54,6 +52,10 @@ func (h *DiagramHandler) Upload(c *gin.Context) {
 
 	content, err := io.ReadAll(file)
 	if err != nil {
+		log.Error().
+			Str("request_id", requestID).
+			Err(err).
+			Msg("failed to read uploaded file")
 		c.JSON(http.StatusBadRequest, gin.H{"error": "failed to read file"})
 		return
 	}
@@ -65,7 +67,11 @@ func (h *DiagramHandler) Upload(c *gin.Context) {
 
 	output, err := h.uploadUseCase.Execute(c.Request.Context(), input, requestID)
 	if err != nil {
-		h.log.Error("upload use case failed", "request_id", requestID, "error", err)
+		log.Error().
+			Err(err).
+			Str("request_id", requestID).
+			Str("filename", header.Filename).
+			Msg("upload use case failed")
 		RespondWithError(c, err)
 		return
 	}
@@ -77,18 +83,18 @@ func (h *DiagramHandler) Upload(c *gin.Context) {
 	})
 }
 
-// GetStatus é o handler HTTP para GET /api/process/:processId/status
 func (h *DiagramHandler) GetStatus(c *gin.Context) {
 	requestID := middleware.GetRequestID(c)
 	processID := c.Param("processId")
+	log := logging.LoggerWithContext(c.Request.Context())
 
-	input := get_process_status.Input{
-		ProcessID: processID,
-	}
-
-	output, err := h.getStatusUseCase.Execute(c.Request.Context(), input, requestID)
+	output, err := h.getStatusUseCase.Execute(c.Request.Context(), get_process_status.Input{ProcessID: processID}, requestID)
 	if err != nil {
-		h.log.Error("get status use case failed", "request_id", requestID, "process_id", processID, "error", err)
+		log.Error().
+			Err(err).
+			Str("request_id", requestID).
+			Str("process_id", processID).
+			Msg("get status use case failed")
 		RespondWithError(c, err)
 		return
 	}
@@ -107,18 +113,18 @@ func (h *DiagramHandler) GetStatus(c *gin.Context) {
 	c.JSON(http.StatusOK, response)
 }
 
-// GetReport é o handler HTTP para GET /api/reports/:reportId
 func (h *DiagramHandler) GetReport(c *gin.Context) {
 	requestID := middleware.GetRequestID(c)
 	reportID := c.Param("reportId")
+	log := logging.LoggerWithContext(c.Request.Context())
 
-	input := get_report.Input{
-		ReportID: reportID,
-	}
-
-	output, err := h.getReportUseCase.Execute(c.Request.Context(), input, requestID)
+	output, err := h.getReportUseCase.Execute(c.Request.Context(), get_report.Input{ReportID: reportID}, requestID)
 	if err != nil {
-		h.log.Error("get report use case failed", "request_id", requestID, "report_id", reportID, "error", err)
+		log.Error().
+			Err(err).
+			Str("request_id", requestID).
+			Str("report_id", reportID).
+			Msg("get report use case failed")
 		RespondWithError(c, err)
 		return
 	}

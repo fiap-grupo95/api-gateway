@@ -5,26 +5,20 @@ import (
 	"net/http"
 
 	domainErrors "github.com/fiap/secure-systems/api-gateway/internal/domain/errors"
-	domsvc "github.com/fiap/secure-systems/api-gateway/internal/domain/service"
+	"github.com/fiap/secure-systems/api-gateway/internal/infrastructure/http/gin/middleware"
+	"github.com/fiap/secure-systems/api-gateway/internal/logging"
 	"github.com/fiap/secure-systems/api-gateway/internal/usecase/authenticate"
 	"github.com/gin-gonic/gin"
 )
 
-// AuthHandler é o adapter HTTP para o use case de autenticação
 type AuthHandler struct {
 	authenticateUseCase *authenticate.UseCase
-	log                 domsvc.Logger
 }
 
-// NewAuthHandler cria uma nova instância
-func NewAuthHandler(authenticateUseCase *authenticate.UseCase, log domsvc.Logger) *AuthHandler {
-	return &AuthHandler{
-		authenticateUseCase: authenticateUseCase,
-		log:                 log,
-	}
+func NewAuthHandler(authenticateUseCase *authenticate.UseCase) *AuthHandler {
+	return &AuthHandler{authenticateUseCase: authenticateUseCase}
 }
 
-// Login é o handler HTTP para POST /auth/login
 func (h *AuthHandler) Login(c *gin.Context) {
 	var req struct {
 		Username string `json:"username" binding:"required,min=1,max=64"`
@@ -32,6 +26,10 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
+		logging.LoggerWithContext(c.Request.Context()).Warn().
+			Str("request_id", middleware.GetRequestID(c)).
+			Str("remote_addr", c.ClientIP()).
+			Msg("invalid login request body")
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
 		return
 	}
@@ -43,10 +41,17 @@ func (h *AuthHandler) Login(c *gin.Context) {
 
 	output, err := h.authenticateUseCase.Execute(c.Request.Context(), input)
 	if err != nil {
+		log := logging.LoggerWithContext(c.Request.Context())
 		if errors.Is(err, domainErrors.ErrInvalidCredentials) {
-			h.log.Warn("failed login attempt", "remote_addr", c.ClientIP())
+			log.Warn().
+				Str("request_id", middleware.GetRequestID(c)).
+				Str("remote_addr", c.ClientIP()).
+				Msg("failed login attempt")
 		} else {
-			h.log.Error("authentication use case failed", "error", err)
+			log.Error().
+				Err(err).
+				Str("request_id", middleware.GetRequestID(c)).
+				Msg("authentication use case failed")
 		}
 		RespondWithError(c, err)
 		return

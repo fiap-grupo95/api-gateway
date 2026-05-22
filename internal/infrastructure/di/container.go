@@ -36,9 +36,6 @@ func NewContainer(cfg *Config) *Container {
 	// INFRASTRUCTURE LAYER (outer) - Adapters
 	// ═══════════════════════════════════════════════════════════════
 
-	// Logger abstrato (domain service interface)
-	logger := service.NewZerologLoggerAdapter()
-
 	// Rate limiter (100 req/min por IP, burst de 20)
 	rateLimiter := service.NewTokenBucketRateLimiter(100.0/60.0, 20)
 
@@ -78,10 +75,9 @@ func NewContainer(cfg *Config) *Container {
 		getStatusUseCase,
 		getReportUseCase,
 		cfg.MaxUploadSizeBytes,
-		logger,
 	)
 
-	authHandler := handler.NewAuthHandler(authenticateUseCase, logger)
+	authHandler := handler.NewAuthHandler(authenticateUseCase)
 
 	return &Container{
 		DiagramHandler: diagramHandler,
